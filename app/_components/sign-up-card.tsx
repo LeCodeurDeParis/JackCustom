@@ -102,7 +102,7 @@ export default function SignUpCard({ onSwitchToSignIn }: SignUpCardProps) {
             <Button type='submit' className='w-full' disabled={isLoading}>
               {isLoading ? "Inscription..." : "S'inscrire"}
             </Button>
-            <Button variant='outline' className='w-full'>
+            <Button type='submit' variant='outline' className='w-full'>
               S&apos;inscrire avec Google
             </Button>
           </CardFooter>
