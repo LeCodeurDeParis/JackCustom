@@ -28,7 +28,7 @@ export default function Home() {
         email,
         password,
         name,
-        callbackURL: "/dashboard",
+        callbackURL: "/lobby",
       },
       {
         onRequest: () => {
@@ -70,7 +70,7 @@ export default function Home() {
                 />
               </div>
               <div className='grid gap-2'>
-                <Label htmlFor='email'>Pseudo</Label>
+                <Label htmlFor='name'>Pseudo</Label>
                 <Input
                   id='name'
                   type='text'
