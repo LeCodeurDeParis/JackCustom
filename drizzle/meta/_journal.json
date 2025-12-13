@@ -22,6 +22,13 @@
       "when": 1765549179700,
       "tag": "0002_heavy_dreaming_celestial",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1765553783803,
+      "tag": "0003_magical_post",
+      "breakpoints": true
     }
   ]
 }

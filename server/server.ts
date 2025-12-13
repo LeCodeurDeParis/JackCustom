@@ -6,7 +6,7 @@ import { onError } from "@orpc/server";
 const handler = new RPCHandler(router, {
   plugins: [new CORSPlugin()],
   interceptors: [
-    onError((error) => {
+    onError((error: Error) => {
       console.error(error);
     }),
   ],
