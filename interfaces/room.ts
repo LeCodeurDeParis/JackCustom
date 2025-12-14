@@ -1,12 +1,12 @@
 import { Player } from "./player";
-import { SessionState } from "@/states/session-states";
+import { RoomState } from "@/states/room-states";
 import { BlackjackGame } from "./blackjack";
 
 export interface Room {
   id: string;
   hostId: string;
 
-  state: SessionState;
+  state: RoomState;
 
   players: Player[];
 

@@ -1,10 +1,9 @@
 import * as z from "zod";
 import { playerSchema } from "./player-schema";
 import { blackjackGameSchema } from "./blackjack-schema";
-import { SessionState } from "@/states/session-states";
+import { SessionState } from "@/states/room-states";
 
 export const createRoomSchema = z.object({
-  id: z.string().optional(),
   hostId: z.string(),
   state: z.nativeEnum(SessionState).default(SessionState.WAITING),
   players: z.array(playerSchema).default([]),

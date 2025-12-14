@@ -1,4 +1,5 @@
 export enum PlayerState {
+  DISCONNECTED = "DISCONNECTED",
   WAITING = "WAITING",
   PLAYING = "PLAYING",
   STAND = "STAND",

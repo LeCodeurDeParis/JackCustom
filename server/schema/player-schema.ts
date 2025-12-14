@@ -11,6 +11,7 @@ export const playerSchema = z.object({
   userId: z.string(),
   socketId: z.string(),
   isDealer: z.boolean(),
+  isHost: z.boolean(),
   hand: z.array(cardSchema),
   state: z.nativeEnum(PlayerState),
   sessionPoints: z.number(),

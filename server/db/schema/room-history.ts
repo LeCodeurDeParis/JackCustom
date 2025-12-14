@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, timestamp } from "drizzle-orm/pg-core";
+import { integer, pgTable, timestamp } from "drizzle-orm/pg-core";
 
 export const roomHistory = pgTable("room_history", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -6,6 +6,4 @@ export const roomHistory = pgTable("room_history", {
   host_id: integer("host_id").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   finished_at: timestamp("finished_at").notNull(),
-  config: jsonb("config").notNull(),
-  result: jsonb("result").notNull(),
 });
