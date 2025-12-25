@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCreateRoom } from "@/hooks/use-room";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CreateRoom() {
+  const router = useRouter();
   const { mutate: createRoom, isPending } = useCreateRoom();
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -18,11 +20,8 @@ export default function CreateRoom() {
     createRoom(undefined, {
       onSuccess: (room) => {
         console.log("✅ Succès dans le composant :", room);
-        setMessage({
-          type: "success",
-          text: `Room créée avec succès ! ID: ${room.id}`,
-        });
-        setTimeout(() => setMessage(null), 3000);
+        // Rediriger vers la page room
+        router.push(`/room/${room.id}`);
       },
       onError: (error) => {
         console.error("❌ Erreur dans le composant :", error);

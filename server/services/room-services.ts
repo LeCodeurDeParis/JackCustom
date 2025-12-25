@@ -10,12 +10,46 @@ import { GameState } from "@/states/game-states";
 import { Player } from "@/interfaces/player";
 import { base } from "../context";
 import { IncomingHttpHeaders } from "node:http";
+import { user } from "../db/schema/auth-schema";
+import { inArray } from "drizzle-orm";
+import db from "../db";
 
 type AuthenticatedContext = {
   headers: IncomingHttpHeaders;
-  user: { id: string };
+  user: { id: string; name?: string };
   session: { id: string; userId: string };
 };
+
+export const getRoom = base
+  .input(z.object({ roomId: z.string() }))
+  .handler(async (opt) => {
+    const input = opt.input;
+    const room = rooms.get(input.roomId);
+    if (!room) {
+      throw new ORPCError("NOT_FOUND", {
+        data: { message: "Room not found" },
+      });
+    }
+    const userIds = room.players.map((p) => p.userId);
+    if (userIds.length > 0) {
+      const users = await db
+        .select({ id: user.id, name: user.name })
+        .from(user)
+        .where(inArray(user.id, userIds));
+
+      const userMap = new Map(users.map((u) => [u.id, u.name]));
+
+      room.players = room.players.map((p) => {
+        const dbName = userMap.get(p.userId);
+        // Utiliser le nom de la DB s'il existe, sinon garder le username actuel
+        return {
+          ...p,
+          username: dbName || p.username || p.userId.slice(0, 8),
+        };
+      });
+    }
+    return room;
+  });
 
 export const createRoom = base.input(z.void()).handler(async (opt) => {
   const context = opt.context as AuthenticatedContext;
@@ -27,6 +61,7 @@ export const createRoom = base.input(z.void()).handler(async (opt) => {
     state: RoomState.WAITING,
     players: [
       {
+        username: context.user.name || context.user.id.slice(0, 8),
         userId: context.user.id,
         socketId: "",
         isDealer: false,
@@ -73,6 +108,7 @@ export const joinRoom = base.input(joinRoomSchema).handler(async (opt) => {
 
   room.players.push({
     userId: context.user.id,
+    username: context.user.name || context.user.id.slice(0, 8),
     socketId: "",
     isDealer: false,
     hand: [],
@@ -173,6 +209,7 @@ export const startGame = base
 
     // TODO: init deck / dealer later
     const bank: Player = {
+      username: "Bank",
       userId: "bank",
       socketId: "",
       isDealer: true,

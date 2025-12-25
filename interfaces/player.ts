@@ -3,6 +3,7 @@ import { Card } from "./card";
 import { PlayerPurchase } from "./shop";
 
 export interface Player {
+  username: string;
   userId: string;
   socketId: string;
 

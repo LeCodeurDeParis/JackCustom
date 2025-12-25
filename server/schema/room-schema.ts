@@ -14,7 +14,6 @@ export const createRoomSchema = z.object({
 
 export const joinRoomSchema = z.object({
   roomId: z.string(),
-  playerId: z.string(),
 });
 
 export const leaveRoomSchema = z.object({
