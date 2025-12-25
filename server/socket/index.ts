@@ -19,6 +19,7 @@ function handleDisconnect(io: Server, socketId: string) {
     io.to(room.id).emit("room:player-disconnected", {
       userId: player.userId,
     });
+    io.to(room.id).emit("room:state", room);
   }
 }
 

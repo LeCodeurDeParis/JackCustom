@@ -3,116 +3,117 @@ import { Room } from "@/interfaces/room";
 import { randomUUID } from "crypto";
 import { rooms } from "@/server/storage/rooms";
 import { PlayerState } from "@/states/player-states";
-import { authMiddleware } from "@/server/middleware/auth-middleware";
-import { base } from "@/server/context";
 import { ORPCError } from "@orpc/server";
 import { joinRoomSchema, leaveRoomSchema } from "../schema/room-schema";
 import { z } from "zod";
 import { GameState } from "@/states/game-states";
-import { BlackjackGame } from "@/interfaces/blackjack";
 import { Player } from "@/interfaces/player";
+import { base } from "../context";
+import { IncomingHttpHeaders } from "node:http";
 
-export const createRoom = base
-  .use(authMiddleware)
-  .handler(async ({ context }) => {
-    const roomId = randomUUID();
+type AuthenticatedContext = {
+  headers: IncomingHttpHeaders;
+  user: { id: string };
+  session: { id: string; userId: string };
+};
 
-    const room: Room = {
-      id: roomId,
-      hostId: context.user.id,
-      state: RoomState.WAITING,
-      players: [
-        {
-          userId: context.user.id,
-          socketId: "",
-          isDealer: false,
-          hand: [],
-          state: PlayerState.WAITING,
-          sessionPoints: 0,
-          autoJoinNext: false,
-          purchases: [],
-        },
-      ],
-      createdAt: Date.now(),
-      finishedAt: undefined,
-    };
+export const createRoom = base.input(z.void()).handler(async (opt) => {
+  const context = opt.context as AuthenticatedContext;
+  const roomId = randomUUID();
 
-    rooms.set(roomId, room);
+  const room: Room = {
+    id: roomId,
+    hostId: context.user.id,
+    state: RoomState.WAITING,
+    players: [
+      {
+        userId: context.user.id,
+        socketId: "",
+        isDealer: false,
+        hand: [],
+        state: PlayerState.WAITING,
+        sessionPoints: 0,
+        autoJoinNext: false,
+        purchases: [],
+      },
+    ],
+    createdAt: Date.now(),
+    finishedAt: undefined,
+  };
 
-    return room;
-  });
+  rooms.set(roomId, room);
 
-export const joinRoom = base
-  .use(authMiddleware)
-  .input(joinRoomSchema)
-  .handler(async ({ context, input }) => {
-    const room = rooms.get(input.roomId);
-    if (!room) {
-      throw new ORPCError("NOT_FOUND", {
-        data: { message: "Room not found" },
-      });
-    }
+  return room;
+});
 
-    if (room.state !== RoomState.WAITING) {
-      throw new ORPCError("BAD_REQUEST", {
-        data: { message: "Game already started" },
-      });
-    }
-
-    const alreadyInRoom = room.players.some(
-      (p) => p.userId === context.user.id
-    );
-    if (alreadyInRoom) return room;
-
-    if (room.players.length >= 8) {
-      throw new ORPCError("CONFLICT", {
-        data: { message: "Room is full" },
-      });
-    }
-
-    room.players.push({
-      userId: context.user.id,
-      socketId: "",
-      isDealer: false,
-      hand: [],
-      state: PlayerState.WAITING,
-      sessionPoints: 0,
-      autoJoinNext: false,
-      purchases: [],
+export const joinRoom = base.input(joinRoomSchema).handler(async (opt) => {
+  const context = opt.context as AuthenticatedContext;
+  const input = opt.input;
+  const room = rooms.get(input.roomId);
+  if (!room) {
+    throw new ORPCError("NOT_FOUND", {
+      data: { message: "Room not found" },
     });
+  }
 
-    return room;
+  if (room.state !== RoomState.WAITING) {
+    throw new ORPCError("BAD_REQUEST", {
+      data: { message: "Game already started" },
+    });
+  }
+
+  const alreadyInRoom = room.players.some((p) => p.userId === context.user.id);
+  if (alreadyInRoom) return room;
+
+  if (room.players.length >= 8) {
+    throw new ORPCError("CONFLICT", {
+      data: { message: "Room is full" },
+    });
+  }
+
+  room.players.push({
+    userId: context.user.id,
+    socketId: "",
+    isDealer: false,
+    hand: [],
+    state: PlayerState.WAITING,
+    sessionPoints: 0,
+    autoJoinNext: false,
+    purchases: [],
   });
 
-export const leaveRoom = base
-  .use(authMiddleware)
-  .input(leaveRoomSchema)
-  .handler(async ({ context, input }) => {
-    const room = rooms.get(input.roomId);
-    if (!room) {
-      throw new ORPCError("NOT_FOUND", {
-        data: { message: "Room not found" },
-      });
-    }
+  return room;
+});
 
-    room.players = room.players.filter((p) => p.userId !== context.user.id);
+export const leaveRoom = base.input(leaveRoomSchema).handler(async (opt) => {
+  const context = opt.context as AuthenticatedContext;
+  const input = opt.input;
+  const room = rooms.get(input.roomId);
+  if (!room) {
+    throw new ORPCError("NOT_FOUND", {
+      data: { message: "Room not found" },
+    });
+  }
 
-    if (room.players.length === 0) {
-      rooms.delete(input.roomId);
-      return { deleted: true };
-    }
+  room.players = room.players.filter((p) => p.userId !== context.user.id);
 
-    if (room.hostId === context.user.id) {
-      room.hostId = room.players[0].userId;
-    }
+  if (room.players.length === 0) {
+    rooms.delete(input.roomId);
+    return { deleted: true };
+  }
 
-    return room;
-  });
+  if (room.hostId === context.user.id) {
+    room.hostId = room.players[0].userId;
+  }
+
+  return room;
+});
 
 export const startRoom = base
-  .use(authMiddleware)
   .input(z.object({ roomId: z.string() }))
-  .handler(async ({ context, input }) => {
+  .handler(async (opt) => {
+    const context = opt.context as AuthenticatedContext;
+    const input = opt.input;
     const room = rooms.get(input.roomId);
     if (!room) {
       throw new ORPCError("NOT_FOUND", {
@@ -145,9 +146,10 @@ export const startRoom = base
   });
 
 export const startGame = base
-  .use(authMiddleware)
   .input(z.object({ roomId: z.string() }))
-  .handler(async ({ context, input }) => {
+  .handler(async (opt) => {
+    const context = opt.context as AuthenticatedContext;
+    const input = opt.input;
     const room = rooms.get(input.roomId);
     if (!room) {
       throw new ORPCError("NOT_FOUND");
@@ -196,9 +198,9 @@ export const startGame = base
   });
 
 export const endGame = base
-  .use(authMiddleware)
   .input(z.object({ roomId: z.string() }))
-  .handler(async ({ input }) => {
+  .handler(async (opt) => {
+    const input = opt.input;
     const room = rooms.get(input.roomId);
     if (!room) {
       throw new ORPCError("NOT_FOUND", {
