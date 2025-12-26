@@ -43,8 +43,8 @@ export function useJoinRoom() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (roomId: string) => {
-      const room = await orpc.room.joinRoom({ roomId });
+    mutationFn: async (code: string) => {
+      const room = await orpc.room.joinRoom({ code });
       return room;
     },
     onSuccess: (room) => {

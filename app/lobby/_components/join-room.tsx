@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 export default function JoinRoom() {
   const router = useRouter();
   const { mutate: joinRoom, isPending } = useJoinRoom();
-  const [roomId, setRoomId] = useState("");
+  const [code, setCode] = useState("");
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -25,15 +25,33 @@ export default function JoinRoom() {
     e.preventDefault();
     setMessage(null);
 
-    if (!roomId.trim()) {
+    const normalizedCode = code.trim().toUpperCase();
+
+    if (!normalizedCode) {
       setMessage({
         type: "error",
-        text: "Veuillez entrer un ID de room",
+        text: "Veuillez entrer un code de room",
       });
       return;
     }
 
-    joinRoom(roomId, {
+    if (normalizedCode.length !== 6) {
+      setMessage({
+        type: "error",
+        text: "Le code doit contenir exactement 6 caractères",
+      });
+      return;
+    }
+
+    if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+      setMessage({
+        type: "error",
+        text: "Le code doit contenir uniquement des lettres et des chiffres",
+      });
+      return;
+    }
+
+    joinRoom(normalizedCode, {
       onSuccess: (room) => {
         // Rediriger vers la page room
         router.push(`/room/${room.id}`);
@@ -44,7 +62,7 @@ export default function JoinRoom() {
         if (error && typeof error === "object" && "message" in error) {
           const orpcError = error as { message?: string; code?: string };
           if (orpcError.code === "NOT_FOUND") {
-            errorMessage = "Room introuvable";
+            errorMessage = "Aucune room trouvée avec ce code";
           } else if (orpcError.code === "CONFLICT") {
             errorMessage = "La room est pleine";
           } else if (orpcError.code === "BAD_REQUEST") {
@@ -86,10 +104,19 @@ export default function JoinRoom() {
             )}
             <Input
               type='text'
-              placeholder='Room ID'
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
+              placeholder='Code (6 caractères) - Ex: A3F2B1'
+              value={code}
+              onChange={(e) => {
+                const value = e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z0-9]/g, "");
+                if (value.length <= 6) {
+                  setCode(value);
+                }
+              }}
+              maxLength={6}
               disabled={isPending}
+              className='font-mono text-center text-lg tracking-wider'
             />
           </CardContent>
           <CardFooter>

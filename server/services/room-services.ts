@@ -13,6 +13,7 @@ import { IncomingHttpHeaders } from "node:http";
 import { user } from "../db/schema/auth-schema";
 import { inArray } from "drizzle-orm";
 import db from "../db";
+import { findRoomByCode } from "../utils/room-code";
 
 type AuthenticatedContext = {
   headers: IncomingHttpHeaders;
@@ -41,7 +42,6 @@ export const getRoom = base
 
       room.players = room.players.map((p) => {
         const dbName = userMap.get(p.userId);
-        // Utiliser le nom de la DB s'il existe, sinon garder le username actuel
         return {
           ...p,
           username: dbName || p.username || p.userId.slice(0, 8),
@@ -84,10 +84,10 @@ export const createRoom = base.input(z.void()).handler(async (opt) => {
 export const joinRoom = base.input(joinRoomSchema).handler(async (opt) => {
   const context = opt.context as AuthenticatedContext;
   const input = opt.input;
-  const room = rooms.get(input.roomId);
+  const room = findRoomByCode(input.code);
   if (!room) {
     throw new ORPCError("NOT_FOUND", {
-      data: { message: "Room not found" },
+      data: { message: "Aucune room trouvée avec ce code" },
     });
   }
 

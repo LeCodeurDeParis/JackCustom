@@ -8,6 +8,12 @@ import { RoomState } from "@/states/room-states";
 import { authClient } from "@/utils/auth-client";
 import { useEffect, useState } from "react";
 
+// Fonction utilitaire pour obtenir le code de room (6 derniers caractères de l'UUID)
+function getRoomCode(roomId: string): string {
+  const cleanId = roomId.replace(/-/g, "");
+  return cleanId.slice(-6).toUpperCase();
+}
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -27,6 +33,7 @@ export default function RoomPage() {
 
   const isHost = room && currentUserId && room.hostId === currentUserId;
   const canStart = isHost && room?.state === RoomState.WAITING;
+  const roomCode = room ? getRoomCode(room.id) : "";
 
   const handleStartRoom = () => {
     if (roomId) {
@@ -35,6 +42,17 @@ export default function RoomPage() {
           // La room sera automatiquement mise à jour via le polling
         },
       });
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (roomCode) {
+      try {
+        await navigator.clipboard.writeText(roomCode);
+        // Optionnel: afficher un message de confirmation
+      } catch (err) {
+        console.error("Erreur lors de la copie du code:", err);
+      }
     }
   };
 
@@ -88,24 +106,47 @@ export default function RoomPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className='flex items-center justify-between'>
-              <div>
-                <p className='text-sm text-muted-foreground'>
-                  Host: {room.hostId.slice(0, 8)}...
-                </p>
-                <p className='text-sm text-muted-foreground'>
-                  Joueurs: {room.players.length}/8
-                </p>
+            <div className='flex flex-col gap-4'>
+              {/* Code de la room */}
+              <div className='flex items-center gap-3'>
+                <div className='flex-1'>
+                  <p className='text-sm text-muted-foreground mb-1'>
+                    Code de la room
+                  </p>
+                  <div className='flex items-center gap-2'>
+                    <div className='px-4 py-2 bg-primary/10 rounded-lg font-mono text-lg font-semibold tracking-wider'>
+                      {roomCode}
+                    </div>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={handleCopyCode}
+                      className='shrink-0'
+                    >
+                      Copier
+                    </Button>
+                  </div>
+                </div>
               </div>
-              {canStart && (
-                <Button
-                  onClick={handleStartRoom}
-                  disabled={isStarting}
-                  className='ml-auto'
-                >
-                  {isStarting ? "Démarrage..." : "Lancer la partie"}
-                </Button>
-              )}
+              <div className='flex items-center justify-between'>
+                <div>
+                  <p className='text-sm text-muted-foreground'>
+                    Host: {room.hostId.slice(0, 8)}...
+                  </p>
+                  <p className='text-sm text-muted-foreground'>
+                    Joueurs: {room.players.length}/8
+                  </p>
+                </div>
+                {canStart && (
+                  <Button
+                    onClick={handleStartRoom}
+                    disabled={isStarting}
+                    className='ml-auto'
+                  >
+                    {isStarting ? "Démarrage..." : "Lancer la partie"}
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

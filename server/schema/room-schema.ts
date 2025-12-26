@@ -13,7 +13,10 @@ export const createRoomSchema = z.object({
 });
 
 export const joinRoomSchema = z.object({
-  roomId: z.string(),
+  code: z
+    .string()
+    .length(6)
+    .regex(/^[A-Z0-9]{6}$/i), // 6 caractères alphanumériques
 });
 
 export const leaveRoomSchema = z.object({
