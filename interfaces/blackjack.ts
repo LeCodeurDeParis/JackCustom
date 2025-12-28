@@ -14,4 +14,6 @@ export interface BlackjackGame {
   currentPlayerIndex: number;
 
   sessionId: string;
+
+  bankHasDrawn: boolean; // La banque doit tirer au moins 1 carte avant de pouvoir dénoncer
 }

@@ -1,26 +1,49 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetRoom, useStartRoom } from "@/hooks/use-room";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useGetRoom, useStartRoom, useLeaveRoom } from "@/hooks/use-room";
+import { useSetReady, useToggleAutoJoin } from "@/hooks/use-ready";
+import { useSocket } from "@/hooks/use-socket";
+import { Card } from "@/components/ui/card";
 import { RoomState } from "@/states/room-states";
 import { authClient } from "@/utils/auth-client";
-import { useEffect, useState } from "react";
-
-// Fonction utilitaire pour obtenir le code de room (6 derniers caractères de l'UUID)
-function getRoomCode(roomId: string): string {
-  const cleanId = roomId.replace(/-/g, "");
-  return cleanId.slice(-6).toUpperCase();
-}
+import { useEffect, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { RoomHeader } from "./_components/room-header";
+import { RoomInfo } from "./_components/room-info";
+import { PlayerList } from "./_components/player-list";
+import { RoomLoading } from "./_components/room-loading";
+import { RoomError } from "./_components/room-error";
+import { RoomChat } from "./_components/room-chat";
+import { RoomSettingsPanel } from "./_components/room-settings-panel";
+import { getRoomCode } from "./_components/utils";
+import { Room } from "@/interfaces/room";
 
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const roomId = params.id as string;
   const { data: room, isLoading, error } = useGetRoom(roomId);
   const { mutate: startRoom, isPending: isStarting } = useStartRoom();
+  const { mutate: leaveRoom, isPending: isLeaving } = useLeaveRoom();
+  const { mutate: setReady } = useSetReady();
+  const { mutate: toggleAutoJoin } = useToggleAutoJoin();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Callback pour mettre à jour le cache quand on reçoit un état via socket
+  const handleRoomState = useCallback(
+    (updatedRoom: Room) => {
+      queryClient.setQueryData(["room", roomId], updatedRoom);
+    },
+    [queryClient, roomId]
+  );
+
+  // Hook socket pour le chat et les settings en temps réel
+  const { sendMessage, updateSettings } = useSocket({
+    roomId,
+    onRoomState: handleRoomState,
+  });
 
   useEffect(() => {
     // Récupérer l'utilisateur actuel
@@ -31,7 +54,7 @@ export default function RoomPage() {
     });
   }, []);
 
-  const isHost = room && currentUserId && room.hostId === currentUserId;
+  const isHost = !!(room && currentUserId && room.hostId === currentUserId);
   const canStart = isHost && room?.state === RoomState.WAITING;
   const roomCode = room ? getRoomCode(room.id) : "";
 
@@ -45,167 +68,93 @@ export default function RoomPage() {
     }
   };
 
-  const handleCopyCode = async () => {
-    if (roomCode) {
-      try {
-        await navigator.clipboard.writeText(roomCode);
-        // Optionnel: afficher un message de confirmation
-      } catch (err) {
-        console.error("Erreur lors de la copie du code:", err);
-      }
+  const handleLeaveRoom = () => {
+    if (roomId && currentUserId) {
+      leaveRoom(
+        { roomId, playerId: currentUserId },
+        {
+          onSuccess: () => {
+            // Rediriger vers le lobby après avoir quitté la room
+            router.push("/lobby");
+          },
+          onError: (error) => {
+            console.error("Erreur lors de la sortie de la room:", error);
+          },
+        }
+      );
     }
   };
 
-  const getStateBadgeColor = (state: RoomState) => {
-    switch (state) {
-      case RoomState.WAITING:
-        return "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200";
-      case RoomState.PLAYING:
-        return "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200";
-      case RoomState.ENDED:
-        return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200";
-      default:
-        return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200";
+  const handleSetReady = (ready: boolean) => {
+    if (roomId) {
+      setReady({ roomId, ready });
+    }
+  };
+
+  const handleToggleAutoJoin = (autoJoin: boolean) => {
+    if (roomId) {
+      toggleAutoJoin({ roomId, autoJoinNext: autoJoin });
     }
   };
 
   if (isLoading) {
-    return (
-      <div className='flex items-center justify-center h-screen'>
-        <div className='text-lg'>Chargement de la room...</div>
-      </div>
-    );
+    return <RoomLoading />;
   }
 
   if (error || !room) {
-    return (
-      <div className='flex flex-col items-center justify-center h-screen gap-4'>
-        <div className='text-lg text-red-600 dark:text-red-400'>
-          {error ? "Erreur lors du chargement de la room" : "Room introuvable"}
-        </div>
-        <Button onClick={() => router.push("/lobby")}>Retour au lobby</Button>
-      </div>
-    );
+    return <RoomError error={error} />;
   }
 
   return (
-    <div className='container mx-auto p-4 max-w-4xl'>
-      <div className='flex flex-col gap-6'>
-        {/* En-tête avec état de la room */}
-        <Card>
-          <CardHeader>
-            <div className='flex items-center justify-between'>
-              <CardTitle>Room {room.id.slice(0, 8)}...</CardTitle>
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${getStateBadgeColor(
-                  room.state
-                )}`}
-              >
-                {room.state}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className='flex flex-col gap-4'>
-              {/* Code de la room */}
-              <div className='flex items-center gap-3'>
-                <div className='flex-1'>
-                  <p className='text-sm text-muted-foreground mb-1'>
-                    Code de la room
-                  </p>
-                  <div className='flex items-center gap-2'>
-                    <div className='px-4 py-2 bg-primary/10 rounded-lg font-mono text-lg font-semibold tracking-wider'>
-                      {roomCode}
-                    </div>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={handleCopyCode}
-                      className='shrink-0'
-                    >
-                      Copier
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='text-sm text-muted-foreground'>
-                    Host: {room.hostId.slice(0, 8)}...
-                  </p>
-                  <p className='text-sm text-muted-foreground'>
-                    Joueurs: {room.players.length}/8
-                  </p>
-                </div>
-                {canStart && (
-                  <Button
-                    onClick={handleStartRoom}
-                    disabled={isStarting}
-                    className='ml-auto'
-                  >
-                    {isStarting ? "Démarrage..." : "Lancer la partie"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className='min-h-screen bg-linear-to-br from-background via-background to-muted/20'>
+      <div className='container mx-auto p-4 max-w-7xl'>
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+          {/* Colonne principale (gauche) */}
+          <div className='lg:col-span-2 flex flex-col gap-6'>
+            <Card className='gap-4'>
+              <RoomHeader
+                room={room}
+                onLeaveRoom={handleLeaveRoom}
+                isLeaving={isLeaving}
+              />
+              <RoomInfo
+                room={room}
+                roomCode={roomCode}
+                canStart={canStart}
+                onStartRoom={handleStartRoom}
+                isStarting={isStarting}
+              />
+            </Card>
 
-        {/* Liste des joueurs */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Joueurs connectés</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {room.players.length === 0 ? (
-              <p className='text-muted-foreground'>Aucun joueur</p>
-            ) : (
-              <div className='space-y-2'>
-                {room.players.map((player, index) => {
-                  const isPlayerHost = player.userId === room.hostId;
-                  const isCurrentUser = player.userId === currentUserId;
-                  return (
-                    <div
-                      key={player.userId}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isCurrentUser
-                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                          : "bg-gray-50 dark:bg-gray-900/20"
-                      }`}
-                    >
-                      <div className='flex items-center gap-3'>
-                        <div className='w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-semibold'>
-                          {index + 1}
-                        </div>
-                        <div>
-                          <div className='flex items-center gap-2'>
-                            <span className='font-medium'>
-                              {player.username}
-                            </span>
-                            {isPlayerHost && (
-                              <span className='px-2 py-0.5 text-xs rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'>
-                                Host
-                              </span>
-                            )}
-                            {isCurrentUser && (
-                              <span className='px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'>
-                                Vous
-                              </span>
-                            )}
-                          </div>
-                          <p className='text-sm text-muted-foreground'>
-                            Points: {player.sessionPoints} | État:{" "}
-                            {player.state}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <PlayerList
+              room={room}
+              currentUserId={currentUserId}
+              onSetReady={handleSetReady}
+              onToggleAutoJoin={handleToggleAutoJoin}
+            />
+          </div>
+
+          {/* Colonne de droite (chat + settings) */}
+          <div className='flex flex-col gap-6'>
+            {/* Settings uniquement pour le host */}
+            {isHost && (
+              <RoomSettingsPanel
+                settings={room.settings}
+                isHost={isHost}
+                onSettingsChange={updateSettings}
+              />
             )}
-          </CardContent>
-        </Card>
+
+            {/* Chat et logs */}
+            <div className='flex-1 min-h-[400px]'>
+              <RoomChat
+                logs={room.logs}
+                currentUserId={currentUserId}
+                onSendMessage={sendMessage}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

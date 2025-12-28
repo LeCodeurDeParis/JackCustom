@@ -14,6 +14,7 @@ export interface Player {
   sessionPoints: number;
 
   autoJoinNext: boolean;
+  ready: boolean;
 
   purchases: PlayerPurchase[];
 }

@@ -14,6 +14,7 @@ import { user } from "../db/schema/auth-schema";
 import { inArray } from "drizzle-orm";
 import db from "../db";
 import { findRoomByCode } from "../utils/room-code";
+import { DEFAULT_ROOM_SETTINGS } from "@/interfaces/room-settings";
 
 type AuthenticatedContext = {
   headers: IncomingHttpHeaders;
@@ -55,13 +56,15 @@ export const createRoom = base.input(z.void()).handler(async (opt) => {
   const context = opt.context as AuthenticatedContext;
   const roomId = randomUUID();
 
+  const hostName = context.user.name || context.user.id.slice(0, 8);
+
   const room: Room = {
     id: roomId,
     hostId: context.user.id,
     state: RoomState.WAITING,
     players: [
       {
-        username: context.user.name || context.user.id.slice(0, 8),
+        username: hostName,
         userId: context.user.id,
         socketId: "",
         isDealer: false,
@@ -69,7 +72,18 @@ export const createRoom = base.input(z.void()).handler(async (opt) => {
         state: PlayerState.WAITING,
         sessionPoints: 0,
         autoJoinNext: false,
+        ready: false,
         purchases: [],
+      },
+    ],
+    dealerIndex: 0,
+    settings: { ...DEFAULT_ROOM_SETTINGS },
+    logs: [
+      {
+        id: randomUUID(),
+        type: "system",
+        message: `Room créée par ${hostName}`,
+        timestamp: Date.now(),
       },
     ],
     createdAt: Date.now(),
@@ -115,11 +129,33 @@ export const joinRoom = base.input(joinRoomSchema).handler(async (opt) => {
     state: PlayerState.WAITING,
     sessionPoints: 0,
     autoJoinNext: false,
+    ready: false,
     purchases: [],
   });
 
   return room;
 });
+
+export const setReady = base
+  .input(z.object({ roomId: z.string(), ready: z.boolean() }))
+  .handler(async (opt) => {
+    const context = opt.context as AuthenticatedContext;
+    const input = opt.input;
+    const room = rooms.get(input.roomId);
+    if (!room)
+      throw new ORPCError("NOT_FOUND", { data: { message: "Room not found" } });
+
+    const player = room.players.find((p) => p.userId === context.user.id);
+    if (!player)
+      throw new ORPCError("NOT_FOUND", {
+        data: { message: "Player not found" },
+      });
+
+    player.ready = input.ready;
+    player.state = input.ready ? PlayerState.READY : PlayerState.WAITING;
+
+    return room;
+  });
 
 export const leaveRoom = base.input(leaveRoomSchema).handler(async (opt) => {
   const context = opt.context as AuthenticatedContext;
@@ -217,6 +253,7 @@ export const startGame = base
       state: PlayerState.WAITING,
       sessionPoints: 0,
       autoJoinNext: false,
+      ready: false,
       purchases: [],
     };
 
@@ -229,6 +266,7 @@ export const startGame = base
       deck: [],
       currentPlayerIndex: 0,
       sessionId: room.id,
+      bankHasDrawn: false,
     };
 
     return room;
@@ -256,6 +294,30 @@ export const endGame = base
     room.players.forEach((player) => {
       player.state = PlayerState.WAITING;
     });
+
+    return room;
+  });
+
+export const prepareNextRound = base
+  .input(z.object({ roomId: z.string() }))
+  .handler(async ({ input }) => {
+    const room = rooms.get(input.roomId);
+    if (!room) {
+      throw new ORPCError("NOT_FOUND", { data: { message: "Room not found" } });
+    }
+
+    // Parcourir les joueurs pour auto-ready
+    room.players.forEach((player) => {
+      if (player.autoJoinNext) {
+        player.state = PlayerState.READY;
+      } else {
+        player.state = PlayerState.WAITING;
+      }
+      player.hand = [];
+    });
+
+    // Reset currentGame si besoin
+    room.currentGame = undefined;
 
     return room;
   });

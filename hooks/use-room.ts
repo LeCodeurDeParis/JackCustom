@@ -69,3 +69,26 @@ export function useStartRoom() {
     },
   });
 }
+
+export function useLeaveRoom() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      roomId,
+      playerId,
+    }: {
+      roomId: string;
+      playerId: string;
+    }) => {
+      const result = await orpc.room.leaveRoom({ roomId, playerId });
+      return { roomId, result };
+    },
+    onSuccess: ({ roomId }) => {
+      // Invalider les queries liées à cette room
+      queryClient.invalidateQueries({ queryKey: ["room", roomId] });
+      queryClient.removeQueries({ queryKey: ["room", roomId] });
+      queryClient.removeQueries({ queryKey: ["currentRoom"] });
+    },
+  });
+}
