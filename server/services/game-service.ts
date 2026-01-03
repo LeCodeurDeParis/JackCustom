@@ -91,8 +91,33 @@ export function startBankTurn(game: BlackjackGame) {
   game.bank.state = PlayerState.PLAYING;
 }
 
-export function bankDrawCard(game: BlackjackGame) {
-  if (game.state !== GameState.BANK_TURN) return;
+// Vérifie si tous les joueurs ont été dénoncés
+export function areAllPlayersDenounced(game: BlackjackGame): boolean {
+  return game.players.every(
+    (p) => p.state === PlayerState.BUST || p.state === PlayerState.WIN
+  );
+}
+
+export function bankDrawCard(game: BlackjackGame): {
+  success: boolean;
+  message?: string;
+} {
+  if (game.state !== GameState.BANK_TURN) {
+    return { success: false, message: "Ce n'est pas le tour de la banque" };
+  }
+
+  // Bloquer le tirage si "Dernier appel" est actif (la banque doit d'abord dénoncer)
+  if (game.forceDenounceAtStart) {
+    return {
+      success: false,
+      message: "Dernier appel ! Vous devez d'abord dénoncer un joueur",
+    };
+  }
+
+  // Vérifier si tous les joueurs sont dénoncés
+  if (areAllPlayersDenounced(game)) {
+    return { success: false, message: "Tous les joueurs ont été dénoncés" };
+  }
 
   drawCard(game.deck, game.bank, false);
   game.bankHasDrawn = true; // La banque a tiré au moins une carte
@@ -104,6 +129,8 @@ export function bankDrawCard(game: BlackjackGame) {
     game.bank.state = PlayerState.BUST;
     game.state = GameState.RESOLUTION;
   }
+
+  return { success: true };
 }
 
 export function bankDenouncePlayer(
@@ -115,7 +142,8 @@ export function bankDenouncePlayer(
   }
 
   // La banque doit avoir tiré au moins 1 carte avant de pouvoir dénoncer
-  if (!game.bankHasDrawn) {
+  // SAUF si l'effet "Dernier appel" est actif
+  if (!game.bankHasDrawn && !game.forceDenounceAtStart) {
     return {
       success: false,
       message: "La banque doit tirer au moins une carte avant de dénoncer",
@@ -188,11 +216,12 @@ export function endBankTurn(game: BlackjackGame) {
   game.bank.state = PlayerState.STAND;
 }
 
-export function resolveRound(game: BlackjackGame) {
+export function resolveRound(game: BlackjackGame, room: Room) {
   if (game.state !== GameState.RESOLUTION) return;
 
   const bankTotal = calculateTotal(game.bank.hand);
   const bankHasBlackjack = isBlackjack(game.bank.hand);
+  const bankBusted = bankTotal > 21;
 
   game.players.forEach((player) => {
     // Si le joueur a déjà été dénoncé (BUST ou WIN), on ne change pas son état
@@ -208,16 +237,16 @@ export function resolveRound(game: BlackjackGame) {
     const playerTotal = calculateTotal(player.hand);
     const playerHasBlackjack = isBlackjack(player.hand);
 
-    if (playerTotal > 21) {
-      player.state = PlayerState.BUST;
+    if (bankBusted) {
+      player.state = PlayerState.WIN;
+      player.sessionPoints += 50;
     } else if (playerHasBlackjack && !bankHasBlackjack) {
       // Blackjack naturel bat tout sauf blackjack de la banque
       player.state = PlayerState.WIN;
       player.sessionPoints += 50;
-    } else if (bankTotal > 21) {
-      // La banque a bust → le joueur gagne
-      player.state = PlayerState.WIN;
-      player.sessionPoints += 50;
+    } else if (playerTotal > 21) {
+      // Le joueur a bust (et la banque n'a pas bust)
+      player.state = PlayerState.BUST;
     } else if (playerTotal > bankTotal) {
       // Le joueur bat la banque
       player.state = PlayerState.WIN;
@@ -234,8 +263,28 @@ export function resolveRound(game: BlackjackGame) {
   ).length;
   game.bank.sessionPoints += losersCount * 10;
 
+  // Synchroniser les points avec les joueurs de la room
+  syncPointsToRoom(game, room);
+
   // Fin de la manche
   game.state = GameState.FINISHED;
+}
+
+// Synchronise les points du jeu vers les joueurs de la room
+function syncPointsToRoom(game: BlackjackGame, room: Room) {
+  // Synchroniser les points des joueurs
+  game.players.forEach((gamePlayer) => {
+    const roomPlayer = room.players.find((p) => p.userId === gamePlayer.userId);
+    if (roomPlayer) {
+      roomPlayer.sessionPoints = gamePlayer.sessionPoints;
+    }
+  });
+
+  // Synchroniser les points de la banque
+  const bankInRoom = room.players.find((p) => p.userId === game.bank.userId);
+  if (bankInRoom) {
+    bankInRoom.sessionPoints = game.bank.sessionPoints;
+  }
 }
 
 // Fonction pour faire tourner le dealer à la fin d'une manche

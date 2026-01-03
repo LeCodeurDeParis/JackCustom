@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useGetRoom, useStartRoom, useLeaveRoom } from "@/hooks/use-room";
+import { useGetRoom, useLeaveRoom } from "@/hooks/use-room";
 import { useSetReady, useToggleAutoJoin } from "@/hooks/use-ready";
 import { useSocket } from "@/hooks/use-socket";
 import { Card } from "@/components/ui/card";
@@ -25,8 +25,8 @@ export default function RoomPage() {
   const queryClient = useQueryClient();
   const roomId = params.id as string;
   const { data: room, isLoading, error } = useGetRoom(roomId);
-  const { mutate: startRoom, isPending: isStarting } = useStartRoom();
   const { mutate: leaveRoom, isPending: isLeaving } = useLeaveRoom();
+  const [isStarting, setIsStarting] = useState(false);
   const { mutate: setReady } = useSetReady();
   const { mutate: toggleAutoJoin } = useToggleAutoJoin();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -39,10 +39,19 @@ export default function RoomPage() {
     [queryClient, roomId]
   );
 
+  // Callback pour la redirection quand le jeu démarre
+  const handleGameStarted = useCallback(
+    (data: { redirect: string }) => {
+      router.push(`${data.redirect}?roomId=${roomId}`);
+    },
+    [router, roomId]
+  );
+
   // Hook socket pour le chat et les settings en temps réel
-  const { sendMessage, updateSettings } = useSocket({
+  const { sendMessage, updateSettings, addTestPlayer, startGame } = useSocket({
     roomId,
     onRoomState: handleRoomState,
+    onGameStarted: handleGameStarted,
   });
 
   useEffect(() => {
@@ -55,16 +64,15 @@ export default function RoomPage() {
   }, []);
 
   const isHost = !!(room && currentUserId && room.hostId === currentUserId);
-  const canStart = isHost && room?.state === RoomState.WAITING;
+  const allPlayersReady = room?.players.every((p) => p.ready) ?? false;
+  const hasEnoughPlayers = (room?.players.length ?? 0) >= 2;
+  const canStart =
+    isHost && room?.state === RoomState.WAITING && allPlayersReady && hasEnoughPlayers;
   const roomCode = room ? getRoomCode(room.id) : "";
 
   const handleStartRoom = () => {
     if (roomId) {
-      startRoom(roomId, {
-        onSuccess: () => {
-          // La room sera automatiquement mise à jour via le polling
-        },
-      });
+      startGame();
     }
   };
 
@@ -111,27 +119,27 @@ export default function RoomPage() {
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
           {/* Colonne principale (gauche) */}
           <div className='lg:col-span-2 flex flex-col gap-6'>
-            <Card className='gap-4'>
-              <RoomHeader
-                room={room}
-                onLeaveRoom={handleLeaveRoom}
-                isLeaving={isLeaving}
-              />
-              <RoomInfo
-                room={room}
-                roomCode={roomCode}
-                canStart={canStart}
-                onStartRoom={handleStartRoom}
-                isStarting={isStarting}
-              />
-            </Card>
+        <Card className='gap-4'>
+          <RoomHeader
+            room={room}
+            onLeaveRoom={handleLeaveRoom}
+            isLeaving={isLeaving}
+          />
+          <RoomInfo
+            room={room}
+            roomCode={roomCode}
+            canStart={canStart}
+            onStartRoom={handleStartRoom}
+            isStarting={isStarting}
+          />
+        </Card>
 
-            <PlayerList
-              room={room}
-              currentUserId={currentUserId}
-              onSetReady={handleSetReady}
-              onToggleAutoJoin={handleToggleAutoJoin}
-            />
+        <PlayerList
+          room={room}
+          currentUserId={currentUserId}
+          onSetReady={handleSetReady}
+          onToggleAutoJoin={handleToggleAutoJoin}
+        />
           </div>
 
           {/* Colonne de droite (chat + settings) */}
@@ -142,6 +150,8 @@ export default function RoomPage() {
                 settings={room.settings}
                 isHost={isHost}
                 onSettingsChange={updateSettings}
+                onAddTestPlayer={addTestPlayer}
+                playerCount={room.players.length}
               />
             )}
 

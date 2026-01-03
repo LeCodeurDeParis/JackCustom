@@ -105,14 +105,14 @@ export const joinRoom = base.input(joinRoomSchema).handler(async (opt) => {
     });
   }
 
+  const alreadyInRoom = room.players.some((p) => p.userId === context.user.id);
+  if (alreadyInRoom) return room;
+
   if (room.state !== RoomState.WAITING) {
     throw new ORPCError("BAD_REQUEST", {
       data: { message: "Game already started" },
     });
   }
-
-  const alreadyInRoom = room.players.some((p) => p.userId === context.user.id);
-  if (alreadyInRoom) return room;
 
   if (room.players.length >= 8) {
     throw new ORPCError("CONFLICT", {

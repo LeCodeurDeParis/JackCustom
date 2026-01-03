@@ -17,4 +17,10 @@ export interface Player {
   ready: boolean;
 
   purchases: PlayerPurchase[];
+
+  // Flags d'effets boutique
+  forceVisibleDraw?: boolean; // A la tienne: prochain tirage visible + stand interdit
+  forceHiddenDraw?: boolean; // Encore un: doit tirer face cachee
+  immuneToForceDraw?: boolean; // Pause lucide: ignore prochain effet de pioche forcee
+  frozenHand?: boolean; // Main figee: ne peut pas jouer
 }

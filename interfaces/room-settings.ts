@@ -10,6 +10,9 @@ export interface RoomSettings {
 
   // Révéler automatiquement les cartes à la fin
   autoRevealCards: boolean;
+
+  // IDs des items boutique activés
+  enabledShopItems: string[];
 }
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
@@ -17,11 +20,21 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   bankWinPoints: 10,
   turnTimeLimit: 0,
   autoRevealCards: true,
+  enabledShopItems: [
+    "vision-alteree",
+    "pause-lucide",
+    "dose-au-choix",
+    "a-la-tienne",
+    "encore-un",
+    "double-pioche",
+    "main-figee",
+    "dernier-appel",
+  ],
 };
 
 export interface RoomLog {
   id: string;
-  type: "system" | "game" | "chat";
+  type: "system" | "game" | "chat" | "shop";
   message: string;
   timestamp: number;
   playerId?: string;
@@ -35,4 +48,3 @@ export interface ChatMessage {
   message: string;
   timestamp: number;
 }
-

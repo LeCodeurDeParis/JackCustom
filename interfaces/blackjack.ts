@@ -16,4 +16,12 @@ export interface BlackjackGame {
   sessionId: string;
 
   bankHasDrawn: boolean; // La banque doit tirer au moins 1 carte avant de pouvoir dénoncer
+
+  // Flags d'effets boutique
+  forceDenounceAtStart?: boolean; // Dernier appel: banque doit denoncer au debut
+  pendingDoseChoice?: {
+    // Dose au choix: en attente de selection
+    userId: string;
+    cards: Card[];
+  };
 }

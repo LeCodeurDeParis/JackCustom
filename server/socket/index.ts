@@ -113,13 +113,19 @@ import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import { roomHandlers } from "./handlers/room-handler";
 import { gameHandlers } from "./handlers/game-handler";
+import { shopHandlers } from "./handlers/shop-handler";
 import { handleDisconnect } from "./handlers/disconnect-handler";
 import { registerAuthMiddleware } from "./auth-socket";
 
 export function initSocket(server: HttpServer): Server {
   const io = new Server(server, {
     cors: {
-      origin: "http://localhost:3000",
+      origin: [
+        "http://localhost:3000",
+        /^http:\/\/192\.168\.\d+\.\d+:3000$/, // Accepte les IPs 192.168.x.x
+        /^http:\/\/10\.\d+\.\d+\.\d+:3000$/,
+      ],
+
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -132,6 +138,7 @@ export function initSocket(server: HttpServer): Server {
 
     roomHandlers(io, socket);
     gameHandlers(io, socket);
+    shopHandlers(io, socket);
 
     socket.on("disconnect", () => {
       console.log("Socket disconnected:", socket.id);

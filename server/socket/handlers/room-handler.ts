@@ -2,6 +2,10 @@ import { Server, Socket } from "socket.io";
 import { rooms } from "@/server/storage/rooms";
 import { PlayerState } from "@/states/player-states";
 import { randomUUID } from "crypto";
+import {
+  disconnectTimeouts,
+  getTimeoutKey,
+} from "@/server/storage/disconnect-timeouts";
 
 export const roomHandlers = (io: Server, socket: Socket) => {
   // JOIN ROOM
@@ -11,6 +15,17 @@ export const roomHandlers = (io: Server, socket: Socket) => {
     if (!room) {
       socket.emit("room:error", { message: "Room not found" });
       return;
+    }
+
+    // Annuler le timeout d'éjection si le joueur se reconnecte
+    const timeoutKey = getTimeoutKey(roomId, userId);
+    const existingTimeout = disconnectTimeouts.get(timeoutKey);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      disconnectTimeouts.delete(timeoutKey);
+      console.log(
+        `Cancelled disconnect timeout for ${userId} in room ${roomId}`
+      );
     }
 
     // Si joueur déjà présent
@@ -29,14 +44,23 @@ export const roomHandlers = (io: Server, socket: Socket) => {
         purchases: [],
       });
     } else {
+      // Mettre à jour le socketId (reconnexion)
       existing.socketId = socket.id;
+      // Ne pas réinitialiser l'état si le joueur est en partie
+      if (!room.currentGame) {
       existing.state = PlayerState.WAITING;
+      }
     }
 
     socket.join(roomId);
 
     // Notifier tout le monde dans la room
     io.to(roomId).emit("room:state", room);
+
+    // Si une partie est en cours, envoyer aussi l'état du jeu au joueur qui rejoint
+    if (room.currentGame) {
+      socket.emit("game:state", room.currentGame);
+    }
   });
 
   // LEAVE ROOM
@@ -154,6 +178,104 @@ export const roomHandlers = (io: Server, socket: Socket) => {
 
     // Notifier tout le monde
     io.to(roomId).emit("room:settings-updated", room.settings);
+    io.to(roomId).emit("room:state", room);
+  });
+
+  // DEV - Ajouter un joueur de test (host uniquement)
+  socket.on("room:add-test-player", ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // Vérifier que c'est le host
+    if (socket.data.user.id !== room.hostId) {
+      socket.emit("room:error", {
+        message: "Seul le host peut ajouter des joueurs de test",
+      });
+      return;
+    }
+
+    // Limiter à 8 joueurs max
+    if (room.players.length >= 8) {
+      socket.emit("room:error", { message: "La room est pleine" });
+      return;
+    }
+
+    // Générer un joueur de test
+    const testId = randomUUID();
+    const testNames = [
+      "Bot Alice",
+      "Bot Bob",
+      "Bot Charlie",
+      "Bot Diana",
+      "Bot Eve",
+      "Bot Frank",
+      "Bot Grace",
+    ];
+    const usedNames = room.players.map((p) => p.username);
+    const availableName =
+      testNames.find((n) => !usedNames.includes(n)) ||
+      `Bot ${room.players.length}`;
+
+    const testPlayer = {
+      userId: `test-${testId}`,
+      username: availableName,
+      socketId: "", // Pas de socket pour les bots
+      isDealer: false,
+      hand: [],
+      state: PlayerState.READY,
+      sessionPoints: 0,
+      autoJoinNext: true,
+      ready: true,
+      purchases: [],
+    };
+
+    room.players.push(testPlayer);
+
+    // Ajouter un log
+    if (!room.logs) room.logs = [];
+    room.logs.push({
+      id: randomUUID(),
+      type: "system" as const,
+      message: `${availableName} a rejoint la partie (test)`,
+      timestamp: Date.now(),
+    });
+
+    io.to(roomId).emit("room:state", room);
+  });
+
+  // DEV - Retirer un joueur de test (host uniquement)
+  socket.on("room:remove-test-player", ({ roomId, playerId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // Vérifier que c'est le host
+    if (socket.data.user.id !== room.hostId) {
+      socket.emit("room:error", {
+        message: "Seul le host peut retirer des joueurs de test",
+      });
+      return;
+    }
+
+    // Vérifier que c'est bien un joueur de test
+    const player = room.players.find((p) => p.userId === playerId);
+    if (!player || !playerId.startsWith("test-")) {
+      socket.emit("room:error", {
+        message: "Ce joueur n'est pas un joueur de test",
+      });
+      return;
+    }
+
+    room.players = room.players.filter((p) => p.userId !== playerId);
+
+    // Ajouter un log
+    if (!room.logs) room.logs = [];
+    room.logs.push({
+      id: randomUUID(),
+      type: "system" as const,
+      message: `${player.username} a quitté la partie`,
+      timestamp: Date.now(),
+    });
+
     io.to(roomId).emit("room:state", room);
   });
 };

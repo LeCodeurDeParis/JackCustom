@@ -10,6 +10,7 @@ interface UseSocketOptions {
   onRoomState?: (room: Room) => void;
   onChatMessage?: (log: RoomLog) => void;
   onSettingsUpdated?: (settings: RoomSettings) => void;
+  onGameStarted?: (data: { redirect: string }) => void;
   onError?: (error: { message: string }) => void;
 }
 
@@ -18,6 +19,7 @@ export function useSocket({
   onRoomState,
   onChatMessage,
   onSettingsUpdated,
+  onGameStarted,
   onError,
 }: UseSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
@@ -27,6 +29,7 @@ export function useSocket({
   const onRoomStateRef = useRef(onRoomState);
   const onChatMessageRef = useRef(onChatMessage);
   const onSettingsUpdatedRef = useRef(onSettingsUpdated);
+  const onGameStartedRef = useRef(onGameStarted);
   const onErrorRef = useRef(onError);
 
   // Mettre à jour les refs quand les callbacks changent
@@ -34,8 +37,9 @@ export function useSocket({
     onRoomStateRef.current = onRoomState;
     onChatMessageRef.current = onChatMessage;
     onSettingsUpdatedRef.current = onSettingsUpdated;
+    onGameStartedRef.current = onGameStarted;
     onErrorRef.current = onError;
-  }, [onRoomState, onChatMessage, onSettingsUpdated, onError]);
+  }, [onRoomState, onChatMessage, onSettingsUpdated, onGameStarted, onError]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -86,30 +90,61 @@ export function useSocket({
       onErrorRef.current?.(error);
     });
 
+    socket.on("game:started", (data: { redirect: string }) => {
+      console.log("Game started, redirecting to:", data.redirect);
+      onGameStartedRef.current?.(data);
+    });
+
     return () => {
       if (socketRef.current) {
-        socketRef.current.emit("room:leave", { roomId });
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
   }, [roomId]);
 
-  const sendMessage = useCallback((message: string) => {
+  const sendMessage = useCallback(
+    (message: string) => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("room:chat", {
+          roomId,
+          message,
+        });
+      }
+    },
+    [roomId]
+  );
+
+  const updateSettings = useCallback(
+    (settings: Partial<RoomSettings>) => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("room:update-settings", {
+          roomId,
+          settings,
+        });
+      }
+    },
+    [roomId]
+  );
+
+  const addTestPlayer = useCallback(() => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit("room:chat", {
-        roomId,
-        message,
-      });
+      socketRef.current.emit("room:add-test-player", { roomId });
     }
   }, [roomId]);
 
-  const updateSettings = useCallback((settings: Partial<RoomSettings>) => {
+  const removeTestPlayer = useCallback(
+    (playerId: string) => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("room:remove-test-player", { roomId, playerId });
+      }
+    },
+    [roomId]
+  );
+
+  const startGame = useCallback(() => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit("room:update-settings", {
-        roomId,
-        settings,
-      });
+      socketRef.current.emit("game:start", { roomId });
     }
   }, [roomId]);
 
@@ -117,6 +152,8 @@ export function useSocket({
     isConnected,
     sendMessage,
     updateSettings,
+    addTestPlayer,
+    removeTestPlayer,
+    startGame,
   };
 }
-
