@@ -18,23 +18,26 @@ export function startGame(room: Room) {
   if (!room)
     throw new ORPCError("NOT_FOUND", { data: { message: "Room not found" } });
 
+  // Ne prendre que les joueurs qui sont ready
+  const readyPlayers = room.players.filter((p) => p.ready);
+
   // Initialiser dealerIndex si c'est la première manche
   if (room.dealerIndex === undefined) {
     room.dealerIndex = 0;
   }
 
-  // S'assurer que dealerIndex est valide
-  room.dealerIndex = room.dealerIndex % room.players.length;
+  // S'assurer que dealerIndex est valide parmi les joueurs ready
+  room.dealerIndex = room.dealerIndex % readyPlayers.length;
 
-  // Reset les joueurs
-  room.players.forEach((player) => {
+  // Reset les joueurs ready
+  readyPlayers.forEach((player) => {
     player.hand = [];
     player.state = PlayerState.PLAYING;
     player.isDealer = false;
   });
 
-  // Sélectionner le joueur qui sera la banque
-  const dealerPlayer = room.players[room.dealerIndex];
+  // Sélectionner le joueur qui sera la banque parmi les joueurs ready
+  const dealerPlayer = readyPlayers[room.dealerIndex];
 
   // Créer le joueur banque (dealer)
   const bank: Player = {
@@ -44,8 +47,8 @@ export function startGame(room: Room) {
     state: PlayerState.WAITING,
   };
 
-  // Les joueurs de la partie sont tous SAUF la banque
-  const gamePlayers = room.players.filter(
+  // Les joueurs de la partie sont les joueurs ready SAUF la banque
+  const gamePlayers = readyPlayers.filter(
     (p) => p.userId !== dealerPlayer.userId
   );
 

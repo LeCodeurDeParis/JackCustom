@@ -27,6 +27,9 @@ function GamePageContent() {
     string | null
   >(null);
   const [chatLogs, setChatLogs] = useState<RoomLog[]>([]);
+  const [autoReplayCountdown, setAutoReplayCountdown] = useState<number | null>(
+    null
+  );
 
   // Récupérer l'utilisateur actuel
   useEffect(() => {
@@ -89,6 +92,11 @@ function GamePageContent() {
     setTimeout(() => setError(null), 3000);
   }, []);
 
+  // Handler pour l'auto-replay countdown
+  const handleAutoReplayCountdown = useCallback((countdown: number | null) => {
+    setAutoReplayCountdown(countdown);
+  }, []);
+
   // Hook socket pour le jeu
   const {
     isConnected,
@@ -105,6 +113,7 @@ function GamePageContent() {
     selectDoseCard,
     sendMessage,
     debugGivePoints,
+    leaveGame,
   } = useGameSocket({
     roomId,
     onGameState: handleGameState,
@@ -114,13 +123,20 @@ function GamePageContent() {
     onShopPurchase: handleShopPurchase,
     onShopError: handleShopError,
     onChatMessage: handleChatMessage,
+    onAutoReplayCountdown: handleAutoReplayCountdown,
   });
 
-  // Retour à la room
+  // Retour à la room (termine la session pour tout le monde)
   const handleBackToRoom = useCallback(() => {
     endGame();
     router.push(`/room/${roomId}`);
   }, [router, roomId, endGame]);
+
+  // Quitter la partie (seul le joueur qui clique quitte)
+  const handleLeaveGame = useCallback(() => {
+    leaveGame();
+    router.push(`/room/${roomId}`);
+  }, [router, roomId, leaveGame]);
 
   // Items de boutique activés
   const enabledItems = getEnabledShopItems(
@@ -202,9 +218,11 @@ function GamePageContent() {
               onEndGame={endGame}
               onReplay={replay}
               onBackToRoom={handleBackToRoom}
+              onLeaveGame={handleLeaveGame}
               onOpenShop={() => setShopOpen(true)}
               hasShopItems={enabledItems.length > 0}
               onDebugGivePoints={debugGivePoints}
+              autoReplayCountdown={autoReplayCountdown}
             />
           </div>
         </div>

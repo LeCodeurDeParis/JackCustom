@@ -25,6 +25,7 @@ interface UseGameSocketOptions {
   onShopPurchase?: (event: ShopPurchaseEvent) => void;
   onShopError?: (error: { message: string }) => void;
   onChatMessage?: (log: RoomLog) => void;
+  onAutoReplayCountdown?: (countdown: number | null) => void;
 }
 
 export function useGameSocket({
@@ -36,6 +37,7 @@ export function useGameSocket({
   onShopPurchase,
   onShopError,
   onChatMessage,
+  onAutoReplayCountdown,
 }: UseGameSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -48,6 +50,7 @@ export function useGameSocket({
   const onShopPurchaseRef = useRef(onShopPurchase);
   const onShopErrorRef = useRef(onShopError);
   const onChatMessageRef = useRef(onChatMessage);
+  const onAutoReplayCountdownRef = useRef(onAutoReplayCountdown);
 
   useEffect(() => {
     onGameStateRef.current = onGameState;
@@ -57,6 +60,7 @@ export function useGameSocket({
     onShopPurchaseRef.current = onShopPurchase;
     onShopErrorRef.current = onShopError;
     onChatMessageRef.current = onChatMessage;
+    onAutoReplayCountdownRef.current = onAutoReplayCountdown;
   }, [
     onGameState,
     onRoomState,
@@ -65,6 +69,7 @@ export function useGameSocket({
     onShopPurchase,
     onShopError,
     onChatMessage,
+    onAutoReplayCountdown,
   ]);
 
   useEffect(() => {
@@ -124,6 +129,10 @@ export function useGameSocket({
     socket.on("shop:error", (error: { message: string }) => {
       console.error("Shop error:", error.message);
       onShopErrorRef.current?.(error);
+    });
+
+    socket.on("game:auto-replay-countdown", (data: { countdown: number | null }) => {
+      onAutoReplayCountdownRef.current?.(data.countdown);
     });
 
     return () => {
@@ -197,6 +206,13 @@ export function useGameSocket({
     }
   }, [roomId]);
 
+  // Quitter la partie (seul le joueur qui appelle cette fonction quitte)
+  const leaveGame = useCallback(() => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("game:leave", { roomId });
+    }
+  }, [roomId]);
+
   const revealHiddenCard = useCallback(() => {
     if (socketRef.current?.connected) {
       socketRef.current.emit("player:reveal-hidden", { roomId });
@@ -255,6 +271,7 @@ export function useGameSocket({
     resolveRound,
     endGame,
     replay,
+    leaveGame,
     // Actions boutique
     buyItem,
     selectDoseCard,

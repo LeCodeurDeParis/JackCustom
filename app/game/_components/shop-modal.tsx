@@ -50,8 +50,8 @@ export function ShopModal({
       selectedItem.targetType === "PLAYER"
         ? selectedTarget ?? undefined
         : selectedItem.targetType === "BANK"
-          ? bankUserId
-          : undefined
+        ? bankUserId
+        : undefined
     );
 
     setSelectedItem(null);
@@ -73,41 +73,43 @@ export function ShopModal({
   const malusItems = items.filter((item) => item.category === "MALUS");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className='fixed inset-0 z-50 flex items-center justify-center'>
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className='absolute inset-0 bg-black/60 backdrop-blur-sm'
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
-        <Card className="border-2 border-primary/20 bg-card/95 backdrop-blur">
-          <CardHeader className="border-b border-border/50">
-            <div className="flex justify-between items-center">
+      <div className='relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4'>
+        <Card className='border-2 border-primary/20 bg-card/95 backdrop-blur'>
+          <CardHeader className='border-b border-border/50'>
+            <div className='flex justify-between items-center'>
               <div>
-                <CardTitle className="text-2xl flex items-center gap-2">
+                <CardTitle className='text-2xl flex items-center gap-2'>
                   🛒 Boutique
                 </CardTitle>
                 <CardDescription>
                   Dépense tes points pour des bonus ou des malus !
                 </CardDescription>
               </div>
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Tes points</div>
-                <div className="text-2xl font-bold text-primary">{myPoints}</div>
+              <div className='text-right'>
+                <div className='text-sm text-muted-foreground'>Tes points</div>
+                <div className='text-2xl font-bold text-primary'>
+                  {myPoints}
+                </div>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="p-4 space-y-6">
+          <CardContent className='p-4 space-y-6'>
             {/* BONUS */}
             {bonusItems.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-green-500 flex items-center gap-2">
-                  ✨ Bonus
+              <div className='space-y-3'>
+                <h3 className='text-lg font-semibold text-green-500 flex items-center gap-2'>
+                  Bonus
                 </h3>
-                <div className="grid gap-3">
+                <div className='grid gap-3'>
                   {bonusItems.map((item) => (
                     <ShopItemCard
                       key={item.id}
@@ -126,11 +128,11 @@ export function ShopModal({
 
             {/* MALUS */}
             {malusItems.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-red-500 flex items-center gap-2">
-                  💀 Malus
+              <div className='space-y-3'>
+                <h3 className='text-lg font-semibold text-red-500 flex items-center gap-2'>
+                  Malus
                 </h3>
-                <div className="grid gap-3">
+                <div className='grid gap-3'>
                   {malusItems.map((item) => (
                     <ShopItemCard
                       key={item.id}
@@ -149,16 +151,16 @@ export function ShopModal({
 
             {/* Sélection de cible */}
             {selectedItem?.targetType === "PLAYER" && (
-              <div className="p-4 rounded-lg bg-muted/50 border border-border space-y-3">
-                <h4 className="font-medium">Choisis une cible :</h4>
-                <div className="flex flex-wrap gap-2">
+              <div className='p-4 rounded-lg bg-muted/50 border border-border space-y-3'>
+                <h4 className='font-medium'>Choisis une cible :</h4>
+                <div className='flex flex-wrap gap-2'>
                   {getTargetOptions("PLAYER").map((player) => (
                     <Button
                       key={player.userId}
                       variant={
                         selectedTarget === player.userId ? "default" : "outline"
                       }
-                      size="sm"
+                      size='sm'
                       onClick={() => setSelectedTarget(player.userId)}
                     >
                       {player.username}
@@ -166,7 +168,7 @@ export function ShopModal({
                   ))}
                 </div>
                 {getTargetOptions("PLAYER").length === 0 && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className='text-sm text-muted-foreground'>
                     Aucun joueur disponible à cibler
                   </p>
                 )}
@@ -174,8 +176,8 @@ export function ShopModal({
             )}
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-              <Button variant="outline" onClick={onClose}>
+            <div className='flex justify-end gap-3 pt-4 border-t border-border/50'>
+              <Button variant='outline' onClick={onClose}>
                 Annuler
               </Button>
               <Button
@@ -215,31 +217,43 @@ function ShopItemCard({
       disabled={!canAfford}
       className={`
         w-full text-left p-4 rounded-lg border-2 transition-all
-        ${isSelected ? "border-primary bg-primary/10" : "border-border/50 bg-card/50"}
-        ${canAfford ? "hover:border-primary/50 cursor-pointer" : "opacity-50 cursor-not-allowed"}
+        ${
+          isSelected
+            ? "border-primary bg-primary/10"
+            : "border-border/50 bg-card/50"
+        }
+        ${
+          canAfford
+            ? "hover:border-primary/50 cursor-pointer"
+            : "opacity-50 cursor-not-allowed"
+        }
       `}
     >
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex-1">
-          <div className="font-semibold">{item.name}</div>
-          <div className="text-sm text-muted-foreground mt-1">
+      <div className='flex justify-between items-start gap-4'>
+        <div className='flex-1'>
+          <div className='font-semibold'>{item.name}</div>
+          <div className='text-sm text-muted-foreground mt-1'>
             {item.description}
           </div>
-          <div className="text-xs text-muted-foreground mt-2">
+          <div className='text-xs text-muted-foreground mt-2'>
             Cible:{" "}
             {item.targetType === "SELF"
               ? "Toi-même"
               : item.targetType === "PLAYER"
-                ? "Un joueur"
-                : item.targetType === "BANK"
-                  ? "La banque"
-                  : "Aucune"}
+              ? "Un joueur"
+              : item.targetType === "BANK"
+              ? "La banque"
+              : "Aucune"}
           </div>
         </div>
         <div
           className={`
           text-lg font-bold px-3 py-1 rounded-full
-          ${canAfford ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}
+          ${
+            canAfford
+              ? "bg-primary/20 text-primary"
+              : "bg-muted text-muted-foreground"
+          }
         `}
         >
           {item.cost} pts
@@ -248,6 +262,3 @@ function ShopItemCard({
     </button>
   );
 }
-
-
-

@@ -22,9 +22,11 @@ interface GameBoardProps {
   onEndGame: () => void;
   onReplay: () => void;
   onBackToRoom: () => void;
+  onLeaveGame: () => void;
   onOpenShop?: () => void;
   hasShopItems?: boolean;
   onDebugGivePoints?: (points: number) => void;
+  autoReplayCountdown?: number | null; // Temps restant avant auto-replay (null = pas d'auto-replay)
 }
 
 export function GameBoard({
@@ -40,9 +42,11 @@ export function GameBoard({
   onEndGame,
   onReplay,
   onBackToRoom,
+  onLeaveGame,
   onOpenShop,
   hasShopItems = false,
   onDebugGivePoints,
+  autoReplayCountdown,
 }: GameBoardProps) {
   const isCurrentUserBank = currentUserId === game.bank.userId;
   const isBankTurn = game.state === GameState.BANK_TURN;
@@ -62,6 +66,18 @@ export function GameBoard({
 
   return (
     <div className='space-y-6'>
+      {/* Bouton retour à la room (toujours visible, en haut à gauche) */}
+      <div className='flex items-center justify-between'>
+        <Button
+          onClick={onLeaveGame}
+          variant='ghost'
+          size='sm'
+          className='text-muted-foreground hover:text-foreground'
+        >
+          ← Retour à la room
+        </Button>
+      </div>
+
       {/* Header avec info et bouton boutique */}
       <div className='flex items-start justify-between gap-4'>
         {/* Info sur la partie */}
@@ -161,22 +177,35 @@ export function GameBoard({
           <p className='text-muted-foreground'>
             Les points ont été attribués aux gagnants.
           </p>
-          <div className='flex justify-center gap-4 flex-wrap'>
-            <Button onClick={onBackToRoom} variant='outline'>
-              Retour à la room
-            </Button>
-            {/* Afficher le bouton Rejouer si la banque est un bot OU si c'est la banque/host */}
-            {(isBankBot || isCurrentUserBank) && (
-              <Button onClick={onReplay} variant='default'>
-                Rejouer
+
+          {/* Auto-replay countdown ou boutons manuels */}
+          {autoReplayCountdown !== null && autoReplayCountdown !== undefined ? (
+            <div className='space-y-2'>
+              <p className='text-lg font-semibold text-primary animate-pulse'>
+                Prochaine manche dans {autoReplayCountdown}s...
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                Tous les joueurs ont l&apos;auto-join activé
+              </p>
+            </div>
+          ) : (
+            <div className='flex justify-center gap-4 flex-wrap'>
+              <Button onClick={onBackToRoom} variant='outline'>
+                Retour à la room
               </Button>
-            )}
-            {isCurrentUserBank && (
-              <Button onClick={onEndGame} variant='destructive'>
-                Terminer la session
-              </Button>
-            )}
-          </div>
+              {/* Afficher le bouton Rejouer si la banque est un bot OU si c'est la banque/host */}
+              {(isBankBot || isCurrentUserBank) && (
+                <Button onClick={onReplay} variant='default'>
+                  Rejouer
+                </Button>
+              )}
+              {isCurrentUserBank && (
+                <Button onClick={onEndGame} variant='destructive'>
+                  Terminer la session
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

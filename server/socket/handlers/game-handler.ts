@@ -343,6 +343,54 @@ export const gameHandlers = (io: Server, socket: Socket) => {
 
     io.to(roomId).emit("game:state", room.currentGame);
     io.to(roomId).emit("room:state", room);
+
+    // Vérifier si tous les joueurs ont l'auto-join activé (ou sont des bots)
+    const allHaveAutoJoin = room.players.every(
+      (p) => p.autoJoinNext || p.userId.startsWith("test-")
+    );
+
+    if (allHaveAutoJoin && room.players.length >= 2) {
+      // Lancer le countdown d'auto-replay
+      let countdown = 3;
+      io.to(roomId).emit("game:auto-replay-countdown", { countdown });
+
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          io.to(roomId).emit("game:auto-replay-countdown", { countdown });
+        } else {
+          clearInterval(countdownInterval);
+          io.to(roomId).emit("game:auto-replay-countdown", { countdown: null });
+
+          // Relancer la partie automatiquement
+          const currentRoom = rooms.get(roomId);
+          if (!currentRoom) return;
+
+          // Réinitialiser les joueurs
+          currentRoom.players.forEach((p) => {
+            p.hand = [];
+            p.state = PlayerState.READY;
+            p.ready = true;
+            p.forceVisibleDraw = undefined;
+            p.forceHiddenDraw = undefined;
+            p.immuneToForceDraw = undefined;
+            p.frozenHand = undefined;
+          });
+
+          // Lancer la nouvelle partie
+          startGame(currentRoom);
+          distributeInitialCards(currentRoom);
+
+          io.to(roomId).emit("game:state", currentRoom.currentGame);
+          io.to(roomId).emit("room:state", currentRoom);
+
+          // Si le premier joueur est un bot, déclencher son tour
+          if (currentRoom.currentGame) {
+            checkNextPlayer(currentRoom.currentGame, io, roomId);
+          }
+        }
+      }, 1000);
+    }
   });
 
   // Rejouer une manche (sans passer par la room)
@@ -409,6 +457,47 @@ export const gameHandlers = (io: Server, socket: Socket) => {
     if (room.currentGame) {
       checkNextPlayer(room.currentGame, io, roomId);
     }
+  });
+
+  // Quitter la partie (seul le joueur qui appelle quitte)
+  socket.on("game:leave", ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    const userId = socket.data.user.id;
+
+    // Retirer le joueur de la partie en cours s'il y en a une
+    if (room.currentGame) {
+      // Retirer des joueurs du jeu
+      room.currentGame.players = room.currentGame.players.filter(
+        (p) => p.userId !== userId
+      );
+
+      // Si c'était la banque qui quitte, on doit gérer ce cas
+      if (room.currentGame.bank.userId === userId) {
+        // La banque quitte - terminer la partie
+        room.state = RoomState.WAITING;
+        room.currentGame = undefined;
+        io.to(roomId).emit("game:ended", room);
+        io.to(roomId).emit("room:state", room);
+      } else {
+        // Simple joueur qui quitte - mettre à jour l'état
+        io.to(roomId).emit("game:state", room.currentGame);
+      }
+    }
+
+    // Mettre le joueur en état WAITING dans la room (il reste dans la room)
+    const roomPlayer = room.players.find((p) => p.userId === userId);
+    if (roomPlayer) {
+      roomPlayer.state = PlayerState.WAITING;
+      roomPlayer.ready = false;
+      roomPlayer.hand = [];
+    }
+
+    // Quitter la socket room du jeu mais pas la room principale
+    socket.leave(`game:${roomId}`);
+
+    io.to(roomId).emit("room:state", room);
   });
 
   // DEBUG: Donner des points (à retirer en production)

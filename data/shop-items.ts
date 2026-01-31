@@ -6,8 +6,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "vision-alteree",
     name: "Vision altérée",
     cost: 15,
-    description:
-      "Bois une gorgée ou une taffe : au tour de la banque, le nombre de joueurs bust sera révélé.",
+    description: "Au tour de la banque, le nombre de joueurs bust sera révélé.",
     targetType: "NONE",
     category: "BONUS",
   },
@@ -15,8 +14,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "pause-lucide",
     name: "Pause lucide",
     cost: 20,
-    description:
-      "Bois une gorgée ou une taffe : ignore le prochain effet qui te forcerait à piocher.",
+    description: "Ignore le prochain effet qui te forcerait à piocher.",
     targetType: "SELF",
     category: "BONUS",
   },
@@ -24,8 +22,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "dose-au-choix",
     name: "Dose au choix",
     cost: 25,
-    description:
-      "Bois une gorgée ou une taffe : pioche 2 cartes visibles et garde celle de ton choix.",
+    description: "Pioche 2 cartes visibles et garde celle de ton choix.",
     targetType: "SELF",
     category: "BONUS",
   },
@@ -36,7 +33,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "À la tienne",
     cost: 20,
     description:
-      "Bois ou fumes avec un joueur : il devra piocher face ouverte à son prochain tirage (stand impossible).",
+      "La cible devra piocher face ouverte à son prochain tirage (stand impossible).",
     targetType: "PLAYER",
     category: "MALUS",
   },
@@ -45,7 +42,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Encore un",
     cost: 25,
     description:
-      "Bois une gorgée ou une taffe : retourne une carte visible de la cible face cachée et oblige-la à tirer face cachée.",
+      "Retourne une carte visible de la cible face cachée et oblige-la à tirer face cachée.",
     targetType: "PLAYER",
     category: "MALUS",
   },
@@ -53,8 +50,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "double-pioche",
     name: "Double pioche",
     cost: 30,
-    description:
-      "Bois une gorgée ou une taffe : 2 cartes visibles sont tirées automatiquement pour la cible.",
+    description: "2 cartes visibles sont tirées automatiquement pour la cible.",
     targetType: "PLAYER",
     category: "MALUS",
   },
@@ -63,7 +59,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Main figée",
     cost: 35,
     description:
-      "Bois une gorgée ou une taffe : bloque la main de la cible jusqu'à ce que la banque la dénonce.",
+      "Bloque la main de la cible jusqu'à ce que la banque la dénonce.",
     targetType: "PLAYER",
     category: "MALUS",
   },
@@ -72,7 +68,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Dernier appel",
     cost: 30,
     description:
-      "Bois une gorgée ou une taffe : force la banque à dénoncer immédiatement un joueur au début de son tour.",
+      "Force la banque à dénoncer immédiatement un joueur au début de son tour.",
     targetType: "BANK",
     category: "MALUS",
   },
@@ -85,6 +81,3 @@ export function getShopItemById(id: string): ShopItem | undefined {
 export function getEnabledShopItems(enabledIds: string[]): ShopItem[] {
   return SHOP_ITEMS.filter((item) => enabledIds.includes(item.id));
 }
-
-
-
